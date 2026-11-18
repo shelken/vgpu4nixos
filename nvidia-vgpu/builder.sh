@@ -198,6 +198,8 @@ installPhase() {
             nuke-refs $i
             cp $i $bin/lib/modules/$kernelVersion/misc/
         done
+        # nixpkgs aggregates each module's .ko.cer, normally produced by modules_install
+        find $bin/lib/modules -name '*.ko' -exec kmodigest {} \;
 
         # Install application profiles.
         if [ "$useProfiles" = "1" ] && [ "$guiBundled" = "1" ]; then
@@ -291,8 +293,10 @@ EOF
                       -e "s|/usr/share/nvidia/vgpu/vgpuConfig.xml|/etc/nvidia/vgpu/vgpuConfig.xml\x00\x00\x00\x00\x00\x00|" \
                       -o $bin/bin/$i $i
                 fi
-                patchelf --interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
-                    --set-rpath $out/lib:$libPath $bin/bin/$i
+                # Two separate patchelf invocations to workaround
+                # https://github.com/NixOS/nixpkgs/issues/576412
+                patchelf --set-rpath "$out/lib:$libPath" "$bin/bin/$i"
+                patchelf --interpreter "$(cat "$NIX_CC/nix-support/dynamic-linker")" "$bin/bin/$i"
             fi
         done
         substituteInPlace nvidia-bug-report.sh \

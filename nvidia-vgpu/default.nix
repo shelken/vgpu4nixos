@@ -51,6 +51,7 @@
   libarchive,
   unzip,
   jq,
+  kmodigest,
 
   src,
   patcherArgs ? "",
@@ -103,11 +104,11 @@ let
       with pkgs;
       [
         libdrm
-        xorg.libXext
-        xorg.libX11
-        xorg.libXv
-        xorg.libXrandr
-        xorg.libxcb
+        libxext
+        libx11
+        libxv
+        libxrandr
+        libxcb
         zlib
         stdenv.cc.cc
         wayland
@@ -166,6 +167,10 @@ let
       "format"
     ];
 
+    # The driver's conftest doesn't pass -std; since gcc 15 defaults to gnu23 the kernel headers
+    # fail to compile, so every probe fails. The kernel itself builds with gnu11
+    env.NIX_CFLAGS_COMPILE = "-std=gnu11";
+
     dontStrip = true;
     dontPatchELF = true;
 
@@ -181,8 +186,10 @@ let
       libarchive
       unzip
       jq
-      kernel.moduleBuildDependencies
-    ] ++ lib.optional (!guest) bbe;
+      kmodigest
+    ]
+    ++ kernel.moduleBuildDependencies
+    ++ lib.optional (!guest) bbe;
 
     disallowedReferences = [ kernel.dev ];
 
@@ -248,6 +255,8 @@ let
         compressFirmware = false;
         ibtSupport = ibtSupport || (lib.versionAtLeast version "530");
         vgpuPatcher = patcher;
+        # the nixpkgs nvidia module loads kernel modules from package.mod
+        mod = self.bin;
       };
 
     meta = with lib; {
